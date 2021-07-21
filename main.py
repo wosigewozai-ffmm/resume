@@ -58,6 +58,7 @@ from pdfminer.pdfpage import PDFTextExtractionNotAllowed
 from docx import Document
 import re
 import jieba
+import jieba.posseg as psg
 
 allAcademy = []
 jieba.load_userdict("schooldict.txt")
@@ -70,7 +71,7 @@ for line in open("academydict.txt", "r", encoding='utf-8', errors='ignore'):  # 
     strline = str(line)
     allAcademy.append(strline[0:strline.find(" ")])
 
-doc = Document('5.docx')
+doc = Document('test.docx')
 
 # 学校列表
 academyList = []
@@ -81,24 +82,20 @@ educateFlagPos = []
 educateNum = 0
 academyDistance = 20
 
+findName = False
+
 # 每一段的内容
 for para in doc.paragraphs:
+    str = para.text
+    str = " " + str + " "
+    # 正则匹配姓名信息
+    pattern_name = re.compile('姓[\s]*名[^\u4E00-\u9FFF]*([\u4E00-\u9FFF]*)[^\u4E00-\u9FFF]')
+    person_name = pattern_name.findall(str)
+    if len(person_name) > 0:
+        print("姓名：", person_name[0])
+        findName = True
     # 正则匹配身份证号
     pattern_idNumber = re.compile('\D[0-9]{17}[0-9|x|X]\D')
-    str = para.text
-    seg_list = jieba.lcut(str, cut_all=False)
-    # 是否存在XX大学/学院
-    for seg in seg_list:
-        wordPos = wordPos + 1
-        if (seg in allAcademy):
-            academyList.append(seg)
-            academyPos.append(wordPos)
-        if (seg == "专科") | (seg == "本科") | (seg == "硕士") | (seg == "博士"):
-            if not (seg in educateFlag):
-                educateNum = educateNum + 1
-            educateFlag.append(seg)
-            educateFlagPos.append(wordPos)
-    str = " " + str + " "
     id_Number = pattern_idNumber.findall(str)
     if len(id_Number) > 0:
         id_Number[0] = id_Number[0][1:len(id_Number[0]) - 1]
@@ -125,6 +122,28 @@ for para in doc.paragraphs:
     person_age = pattern_age.findall(str)
     if len(person_age) > 0:
         print("年龄：", person_age[0])
+    # 正则匹配籍贯信息
+    pattern_nativePlace = re.compile('籍[\s]*贯[^\u4E00-\u9FFF]*([\u4E00-\u9FFF]*)[^\u4E00-\u9FFF]')
+    native_Place = pattern_nativePlace.findall(str)
+    if len(native_Place) > 0:
+        print("籍贯：", native_Place[0])
+    seg_list = jieba.lcut(str, cut_all=False)
+    # 是否存在XX大学/学院
+    for seg in seg_list:
+        if not findName:
+            type_seg = psg.cut(seg).__next__().flag
+            if type_seg == "nr":
+                print("姓名：", seg)
+                findName = True
+        wordPos = wordPos + 1
+        if seg in allAcademy:
+            academyList.append(seg)
+            academyPos.append(wordPos)
+        if (seg == "专科") | (seg == "本科") | (seg == "硕士") | (seg == "博士"):
+            if not (seg in educateFlag):
+                educateNum = educateNum + 1
+            educateFlag.append(seg)
+            educateFlagPos.append(wordPos)
 # 匹配学历信息
 for i in range(0, len(academyList) - educateNum + 1):
     for j in range(0, len(educateFlag) - educateNum + 1):
