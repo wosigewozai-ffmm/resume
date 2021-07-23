@@ -73,7 +73,7 @@ for line in open("academydict.txt", "r", encoding='utf-8', errors='ignore'):  # 
     strline = str(line)
     allAcademy.append(strline[0:strline.find(" ")])
 
-doc = Document('3.docx')
+doc = Document('5.docx')
 
 # 学校列表
 academyList = []
@@ -82,7 +82,7 @@ wordPos = 0
 educateFlag = []
 educateFlagPos = []
 educateNum = 0
-academyDistance = 5
+academyDistance = 10
 
 # 时间列表
 dataList = []
@@ -105,17 +105,25 @@ for para in doc.paragraphs:
     str_ = " " + str_ + " "
 
     #  正则匹配提取时间段
-    patter_timeGap = re.compile('\d{4}\.\d{2}[\.\d{2}]*?[\s]*?-[\s]*?\d{4}\.\d{2}[\.\d{2}]*?')
+    patter_timeGap = re.compile('\d{4}[\.|\-|/|年]\d{2}[\.|\-|/|月\d{2}]*?[日]*?[\s]*?[-|~][\s]*?\d{4}[\.|\-|/|年]\d{2}[\.|\-|/|月\d{2}]*?[日]*?')
     Gaps = patter_timeGap.findall(str_)
     if len(Gaps) > 0:
         for gap in Gaps:
-            print(gap)
+            # print(gap)
+            gapList.append(gap)
+            dateList.append(gap)
+    patter_timeGaps = re.compile('\d{4}[\.|\-|/|年]\d{2}[\.|-|/|月\d{2}]*?[日]*?[\s]*?[-|~][\s]*?至今')
+    gaps = patter_timeGaps.findall(str_)
+    Gaps.append(gaps)
+    if len(gaps) > 0:
+        for gap in gaps:
+            # print(gap)
             gapList.append(gap)
             dateList.append(gap)
 
     #  正则匹配提取所有日期
     patter_date = re.compile(
-        '[^-](\d{4}-\d{2}[-\d{2}]*?)|(\d{4}年\d{2}月[\d{1,2}日]*?)|(\d{4}\.\d{2}[\.\d{2}]*?)|(\d{4}/\d{2}[/\d{2}]*?)[\s]*?[^-]*?')
+        '(\d{4}\-\d{2}[\-\d{2}]*?)|(\d{4}年\d{2}月[\d{2}日]*?)|(\d{4}\.\d{2}[\.\d{2}]*?)|(\d{4}/\d{2}[/\d{2}]*?)')
     Dates = patter_date.findall(str_)
     if len(Dates) > 0:
         for Date in Dates:
@@ -125,7 +133,7 @@ for para in doc.paragraphs:
                 if str(gap).find(str(date)) != -1:
                     dateFlag = False
             if dateFlag:
-                print(date)
+                # print(date)
                 dataList.append(date)
                 dateList.append(date)
 
@@ -224,11 +232,11 @@ for para in doc.paragraphs:
         if len(dateList) > datePoint:
             if str(dateList[datePoint]).find(seg) == 0:
                 datePos.append(wordPos)
-                if len(dateList[datePoint]) > 10:
+                if (len(dateList[datePoint]) > 10) | (str(dateList[datePoint]).find("至今") != -1):
                     gapPos.append(wordPos)
                 else:
                     dataPos.append(wordPos)
-                print(wordPos, " ", dateList[datePoint])
+                # print(wordPos, " ", dateList[datePoint])
                 datePoint = datePoint + 1
 
         # 是否存在XX大学/学院
