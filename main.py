@@ -62,9 +62,11 @@ import jieba.posseg as psg
 import pandas as pd
 
 allAcademy = []
+allMajor = []
 jieba.load_userdict("schooldict.txt")
 jieba.load_userdict("academydict.txt")
 jieba.load_userdict("Englishdict.txt")
+jieba.load_userdict("majordict.txt")
 for line in open("schooldict.txt", "r", encoding='utf-8', errors='ignore'):  # 设置文件对象并读取每一行文件
     strline = str(line)
     allAcademy.append(strline[0:strline.find(" ")])
@@ -73,14 +75,20 @@ for line in open("academydict.txt", "r", encoding='utf-8', errors='ignore'):  # 
     strline = str(line)
     allAcademy.append(strline[0:strline.find(" ")])
 
+for line in open("majordict.txt", "r", encoding='utf-8', errors='ignore'):  # 设置文件对象并读取每一行文件
+    strline = str(line)
+    allMajor.append(strline.replace('\n',''))
+
 doc = Document('5.docx')
 
 # 学校列表
 academyList = []
 academyPos = []
+majorList = []
 wordPos = 0
 educateFlag = []
 educateFlagPos = []
+majorPos = []
 educateNum = 0
 academyDistance = 10
 
@@ -93,6 +101,13 @@ datePos = []
 gapPos = []
 dataPos = []
 dateDistance = 10
+
+# 英语技能列表
+EnglishList = []
+EnglishPos = []
+
+# 全文分词表
+wordList = []
 
 #  默认简历中出现的第一个姓名为简历者的姓名
 findName = False
@@ -123,7 +138,7 @@ for para in doc.paragraphs:
 
     #  正则匹配提取所有日期
     patter_date = re.compile(
-        '(\d{4}\-\d{2}[\-\d{2}]*?)|(\d{4}年\d{2}月[\d{2}日]*?)|(\d{4}\.\d{2}[\.\d{2}]*?)|(\d{4}/\d{2}[/\d{2}]*?)')
+        '(\d{4}\-\d{1,2}[\-\d{2}]*?)|(\d{4}年\d{1,2}月[\d{2}日]*?)|(\d{4}\.\d{2}[\.\d{2}]*?)|(\d{4}/\d{2}[/\d{2}]*?)')
     Dates = patter_date.findall(str_)
     if len(Dates) > 0:
         for Date in Dates:
@@ -203,11 +218,15 @@ for para in doc.paragraphs:
         print("民族：", person_Folk[0])
         temp = ["民族", person_Folk[0]]
         resultInfo.append(temp)
+
+    #
+
     #  将段落分词
     temp = str_.split()
     str_ = "".join(temp)
     seg_list = jieba.lcut(str_, cut_all=False)
     for seg in seg_list:
+        wordList.append(seg)
         type_seg = psg.cut(seg).__next__().flag
         if type_seg == "nr":
             #  如果还没有找到姓名属性
@@ -217,15 +236,15 @@ for para in doc.paragraphs:
                 resultInfo.append(temp)
                 findName = True
         if type_seg == "es":
-            print("英语技能:", seg)
             pattern_englishSkill = re.compile(seg + '[\D]*([\d]{1,3})[\D]')
             english_Skill = pattern_englishSkill.findall(str_)
             if len(english_Skill) > 0:
                 temp_skill = "{" + seg + "," + english_Skill[0] + "}"
             else:
                 temp_skill = "{" + seg + "," + "None" + "}"
-            temp = ["英语技能", temp_skill]
-            resultInfo.append(temp)
+            print(temp_skill)
+            EnglishList.append(temp_skill)
+            EnglishPos.append(wordPos)
         wordPos = wordPos + 1
 
         # 查找日期地址
@@ -238,6 +257,10 @@ for para in doc.paragraphs:
                     dataPos.append(wordPos)
                 # print(wordPos, " ", dateList[datePoint])
                 datePoint = datePoint + 1
+
+        # 查找专业
+        if seg in allMajor:
+            majorList.append(seg)
 
         # 是否存在XX大学/学院
         if seg in allAcademy:
@@ -275,10 +298,36 @@ for i in range(0, len(academyList) - educateNum + 1):
                 if dateFlag:
                     dateStart = t
             for k in range(0, educateNum):
-                print(educateFlag[j + k], ":", academyList[i + k], gapList[dateStart + k])
-                temp = [educateFlag[j + k], academyList[i + k], gapList[dateStart + k]]
+                major = "None"
+                for t in range(5, -5, -1):
+                    if wordList[academyPos[j+k]+t] in majorList:
+                        major = wordList[academyPos[j+k]+t]
+                        break
+                print(educateFlag[j + k], ":", academyList[i + k], gapList[dateStart + k], " 专业：", major)
+                temp = [educateFlag[j + k], academyList[i + k], gapList[dateStart + k], major]
                 resultInfo.append(temp)
 
-    #  输出到csv表
-    result = pd.DataFrame(data=resultInfo)
-    result.to_csv('result.csv', encoding="utf_8_sig")
+# 英语技能找时间
+
+engPos = 0
+englishResult = ''
+for englishList in EnglishList:
+    flag = False;
+    for t in range(4, -4, 1):
+        if (EnglishPos[engPos]+t) in dataPos:
+            if not flag:
+                flag = True
+                temp = '{' + wordList[EnglishPos[engPos]+t] + ',' + englishList[1:len(englishList)]
+    if not flag:
+        temp = '{None, ' + englishList[1:len(englishList)]
+    if englishResult == '':
+        englishResult = englishResult + temp
+    else:
+        englishResult = englishResult + ',' + temp
+print(englishResult)
+resultInfo.append(['英语技能', englishResult])
+
+#  输出到csv表
+result = pd.DataFrame(data=resultInfo)
+result.to_csv('result.csv', encoding="utf_8_sig")
+print(majorList)
